@@ -1,0 +1,397 @@
+---
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+background-size: cover
+class: animated slideInRight fadeOutLeft, middle
+
+```{r xaringan-extra-styles, include=FALSE}
+#devtools::install_github("gadenbuie/xaringanExtra")
+xaringanExtra::use_extra_styles(
+  hover_code_line = TRUE,         #<<
+  mute_unhighlighted_code = TRUE  #<<
+)
+```
+
+
+```{r include=FALSE}
+#devtools::install_github("gadenbuie/countdown")
+library(countdown)
+```
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#6c5396",
+  secondary_color = "#534173",
+  inverse_header_color = "#FFFFFF"
+)
+```
+
+```{r , message=FALSE, warning=FALSE, include=FALSE} 
+#devtools::install_github("rstudio/fontawesome")
+library(fontawesome)
+library(emo)
+library(tidyverse)
+```
+
+```{r xaringan-logo, echo=FALSE}
+xaringanExtra::use_logo("img/logo-tidymodels.png")
+```
+
+
+```{r xaringan-tachyons, echo=FALSE}
+xaringanExtra::use_tachyons()
+xaringanExtra::use_fit_screen()
+```
+
+
+# Clustering
+
+
+### 1º Congreso Latinoamericano de Mujeres en Bioinformática y Ciencia de Datos
+
+---
+## Intro
+
+Vamos a usar K-means como un ejemplo útil para aplicar principios de datos ordenados
+al análisis estadístico, y especialmente para la distinción entre estas funciones:
+
+* tidy()
+* augment()
+* glance()
+
+---
+## Creación dataset ejemplo
+
+```{r }
+library(tidymodels)
+set.seed(27)
+centers <- tibble(
+  cluster = factor(1:3), 
+  num_points = c(100, 150, 50),  # number points in each cluster
+  x1 = c(5, 0, -3),              # x1 coordinate of cluster center
+  x2 = c(-1, 1, -2)              # x2 coordinate of cluster center
+)
+
+```
+---
+## Dataset de puntos
+```{r}
+labelled_points <- 
+  centers %>%
+  mutate(
+    x1 = map2(num_points, x1, rnorm),
+    x2 = map2(num_points, x2, rnorm)
+  ) %>% 
+  select(-num_points) %>% 
+  unnest(cols = c(x1, x2))
+
+```
+--- 
+## Grafico dataset labelled_points
+
+```{r}
+ggplot(labelled_points, aes(x1, x2, color = cluster)) +
+  geom_point(alpha = 0.3)
+```
+
+---
+## Uso de kmeans()
+
+Se usa la función kmeans ya incluida en R base.
+
+```{r}
+points <- 
+  labelled_points %>% 
+  select(-cluster)
+
+kclust <- kmeans(points, centers = 3)
+kclust
+```
+---
+## Uso de kmeans()
+
+```{r}
+summary(kclust)
+```
+---
+## augment()
+
+* A cada datapoint del cluster le agregamos la clasificacion original del dataset
+* Función augment.kmeans del paquete broom
+
+```{r}
+augment(kclust, points)
+```
+
+---
+### tidy
+
+La funcion tidy nos resume las estadisticas por cluster
+
+```{r}
+tidy(kclust)
+```
+---
+### glance
+
+Y la función glance() nos regresa un resumen en una sola fila
+
+```{r}
+glance(kclust)
+```
+
+---
+## Realizar clustering exploratorio
+
+Lo siguiente es para visualizar como cambia la asignación
+de datapoints al cluster, a medida que el número de clusters aumenta.
+
+Es decir, observamos como se agrupan los datapoints a medida 
+que k aumenta.
+---
+### Para k=1:9
+
+```{r}
+kclusts <- 
+  tibble(k = 1:9) %>%
+  mutate(
+    kclust = map(k, ~kmeans(points, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, points)
+  )
+
+```
+---
+## kclust
+
+```{r}
+
+kclusts
+```
+
+---
+```{r}
+clusters <- 
+  kclusts %>%
+  unnest(cols = c(tidied))
+
+assignments <- 
+  kclusts %>% 
+  unnest(cols = c(augmented))
+
+clusterings <- 
+  kclusts %>%
+  unnest(cols = c(glanced))
+```
+
+---
+### Plot 
+
+Se grafican los datapoints originales con su cluster predicho / asignado
+
+```{r}
+p1 <- 
+  ggplot(assignments, aes(x = x1, y = x2)) +
+  geom_point(aes(color = .cluster), alpha = 0.8) + 
+  facet_wrap(~ k)
+p1
+```
+
+---
+## Concluyendo
+Observamos que un número de tres (3) clústeres es apropiado,
+y como funciona el algoritmo k-means cuando el k es muy grando o 
+muy pequeño.
+Podemos agregar los centros al cluster usando la función tidy()
+
+```{r}
+p2 <- p1 + geom_point(data = clusters, size = 10, shape = "x")
+p2
+```
+
+---
+
+```{r}
+ggplot(clusterings, aes(k, tot.withinss)) +
+  geom_line() +
+  geom_point()
+```
+
+---
+
+# palmerpenguins
+
+Al primer uso del dataset, debe instalarse el paquete que lo contiene.
+Luego podremos cargarlo sin problemas y usarlo para nuestro análisis.
+
+```{r,eval=FALSE}
+remotes::install_github("cienciadedatos/datos")
+library(datos)
+```
+
+---
+## Carga del dataset en memoria y breve descripción
+
+```{r}
+library(datos)
+pinguinos
+#data(package = 'palmerpenguins')
+```
+
+---
+Observemos el tipo de sus atributos
+
+```{r}
+str(pinguinos)
+```
+---
+Observamos que los atributos numéricos que pueden ser de interés para kmeans son:
+
+* largo_pico_mm
+* alto_pico_mm
+* largo_aleta_mm
+* masa_corporal_g
+
+---
+## Dataset palmerpenguis
+
+* Son datos de pingüinos de tres especies. 
+* Observamos que no se relevó la misma cantidad de datos
+para cada especie.
+
+```{r}
+pinguinos %>% 
+  count(especie)
+```
+---
+## Clustering exploratorio
+
+Dado que kmeans trabaja con distancias promedios, 
+¿nos regresaría algo similar a lo siguiente?
+¿tendria sentido el clustering?
+```{r}
+pinguinos %>% 
+  group_by(especie) %>% 
+  summarize(across(where(is.numeric), mean, na.rm = TRUE))
+```
+
+---
+## Preprocesamiento de datos
+
+* largo_pico_mm
+* alto_pico_mm
+* largo_aleta_mm
+* masa_corporal_g
+
+```{r}
+dataset <- pinguinos %>%
+          select(largo_pico_mm,alto_pico_mm,largo_aleta_mm,masa_corporal_g)
+```
+---
+
+```{r}
+summary(dataset)
+```
+---
+Hay valores perdidos, procedemos a descartarlos
+
+```{r}
+dataset <- dataset %>% 
+          drop_na()
+```
+---
+```{r}
+summary(dataset)
+```
+
+---
+```{r}
+dataset <- map_df(dataset,as.numeric)
+```
+---
+```{r}
+summary(dataset)
+```
+
+
+*TODO histograma plot a esta altura *
+---
+## Kmeans usando las 4 columnas 
+
+```{r}
+kclust <- kmeans(dataset, centers = 3)
+kclust
+```
+---
+```{r}
+tidy(kclust)
+```
+
+---
+```{r}
+colnames(dataset)
+```
+
+```{r}
+augment(kclust,dataset) %>% 
+  ggplot(aes(x=largo_aleta_mm,y=masa_corporal_g)) +
+  geom_point() +
+  facet_grid(~ .cluster)
+```
+
+
+---
+
+```{r}
+augment(kclust,dataset) %>% 
+  ggplot(aes(x=largo_aleta_mm,y=masa_corporal_g,color=.cluster)) +
+  geom_point() 
+```
+
+---
+
+¿Cambia el clustering si escalamos los datos?
+
+---
+Ahora escalamos el dataset original
+```{r}
+kclust <- kmeans(scale(dataset), centers = 3)
+tidy(kclust)
+```
+
+---
+
+```{r}
+augment(kclust,scale(dataset)) %>% 
+  ggplot(aes(x=largo_aleta_mm,y=masa_corporal_g)) +
+  geom_point() +
+  facet_grid(~ .cluster)
+```
+
+---
+
+```{r}
+augment(kclust,scale(dataset)) %>% 
+  ggplot(aes(x=largo_aleta_mm,y=masa_corporal_g,color=.cluster)) +
+  geom_point() 
+```
+
+
+---
+# Referencias
+
+* Ejemplo uso K-means https://www.tidymodels.org/learn/statistics/k-means/
