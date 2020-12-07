@@ -20,7 +20,7 @@ pca_prep <- prep(pca_rec)
 
 pca_prep
 
-juice(pca_prep) %>%
+bake(pca_prep,new_data = penguins) %>%
   ggplot(aes(PC1, PC2, label = species)) +
   geom_point(aes(color = species), alpha = 0.7, size = 2) +
   labs(title="PCA from Palmer Penguins")
@@ -37,7 +37,7 @@ umap_prep <- prep(umap_rec)
 
 umap_prep
 
-juice(umap_prep) %>%
+bake(umap_prep,new_data=penguins) %>%
   ggplot(aes(umap_1, umap_2, label = species)) +
   geom_point(aes(color = species), alpha = 0.7, size = 2) +
   labs(title="UMAP from Palmer Penguins")
