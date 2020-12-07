@@ -9,7 +9,6 @@ penguins <- palmerpenguins::penguins
 penguins <- penguins %>%
   select(-sex, -year, -island)%>%
   drop_na()
-library(recipes)
 
 pca_rec <- recipe(~., data = penguins) %>%
   update_role(species, new_role = "id") %>%
